@@ -40,24 +40,17 @@ type Config struct {
 	RelaySoftware                        string     `json:"relay_software"`
 	RelayVersion                         string     `json:"relay_version"`
 	PrivateRelayName                     string     `json:"private_relay_name"`
-	PrivateRelayNpub                     string     `json:"private_relay_npub"`
 	PrivateRelayDescription              string     `json:"private_relay_description"`
-	PrivateRelayIcon                     string     `json:"private_relay_icon"`
 	ChatRelayName                        string     `json:"chat_relay_name"`
-	ChatRelayNpub                        string     `json:"chat_relay_npub"`
 	ChatRelayDescription                 string     `json:"chat_relay_description"`
-	ChatRelayIcon                        string     `json:"chat_relay_icon"`
 	ChatRelayWotDepth                    int        `json:"chat_relay_wot_depth"`
 	ChatRelayWotRefreshIntervalHours     int        `json:"chat_relay_wot_refresh_interval_hours"`
 	ChatRelayMinimumFollowers            int        `json:"chat_relay_minimum_followers"`
 	OutboxRelayName                      string     `json:"outbox_relay_name"`
-	OutboxRelayNpub                      string     `json:"outbox_relay_npub"`
 	OutboxRelayDescription               string     `json:"outbox_relay_description"`
-	OutboxRelayIcon                      string     `json:"outbox_relay_icon"`
 	InboxRelayName                       string     `json:"inbox_relay_name"`
-	InboxRelayNpub                       string     `json:"inbox_relay_npub"`
 	InboxRelayDescription                string     `json:"inbox_relay_description"`
-	InboxRelayIcon                       string     `json:"inbox_relay_icon"`
+	RelayIcon                       string     `json:"relay_icon"`
 	InboxPullIntervalSeconds             int        `json:"inbox_pull_interval_seconds"`
 	ImportStartDate                      string     `json:"import_start_date"`
 	ImportOwnerNotesFetchTimeoutSeconds  int        `json:"import_owned_notes_fetch_timeout_seconds"`
@@ -83,29 +76,22 @@ func loadConfig() Config {
 		LmdbMapSize:                          getEnvInt64("LMDB_MAPSIZE", 0),
 		BlossomPath:                          getEnvString("BLOSSOM_PATH", "blossom"),
 		RelayURL:                             getEnv("RELAY_URL"),
-		RelayPort:                            getEnvInt("RELAY_PORT", 3355),
+		RelayPort:                            getEnvInt("RELAY_PORT", 3334),
 		RelayBindAddress:                     getEnvString("RELAY_BIND_ADDRESS", "0.0.0.0"),
 		RelaySoftware:                        "https://github.com/bitvora/haven",
 		RelayVersion:                         "v1.0.5",
 		PrivateRelayName:                     getEnv("PRIVATE_RELAY_NAME"),
-		PrivateRelayNpub:                     getEnv("PRIVATE_RELAY_NPUB"),
 		PrivateRelayDescription:              getEnv("PRIVATE_RELAY_DESCRIPTION"),
-		PrivateRelayIcon:                     getEnv("PRIVATE_RELAY_ICON"),
+		RelayIcon:			                  getEnv("RELAY_ICON"),
 		ChatRelayName:                        getEnv("CHAT_RELAY_NAME"),
-		ChatRelayNpub:                        getEnv("CHAT_RELAY_NPUB"),
 		ChatRelayDescription:                 getEnv("CHAT_RELAY_DESCRIPTION"),
-		ChatRelayIcon:                        getEnv("CHAT_RELAY_ICON"),
 		ChatRelayWotDepth:                    getEnvInt("CHAT_RELAY_WOT_DEPTH", 0),
 		ChatRelayWotRefreshIntervalHours:     getEnvInt("CHAT_RELAY_WOT_REFRESH_INTERVAL_HOURS", 0),
 		ChatRelayMinimumFollowers:            getEnvInt("CHAT_RELAY_MINIMUM_FOLLOWERS", 0),
 		OutboxRelayName:                      getEnv("OUTBOX_RELAY_NAME"),
-		OutboxRelayNpub:                      getEnv("OUTBOX_RELAY_NPUB"),
 		OutboxRelayDescription:               getEnv("OUTBOX_RELAY_DESCRIPTION"),
-		OutboxRelayIcon:                      getEnv("OUTBOX_RELAY_ICON"),
 		InboxRelayName:                       getEnv("INBOX_RELAY_NAME"),
-		InboxRelayNpub:                       getEnv("INBOX_RELAY_NPUB"),
 		InboxRelayDescription:                getEnv("INBOX_RELAY_DESCRIPTION"),
-		InboxRelayIcon:                       getEnv("INBOX_RELAY_ICON"),
 		InboxPullIntervalSeconds:             getEnvInt("INBOX_PULL_INTERVAL_SECONDS", 3600),
 		ImportStartDate:                      getEnv("IMPORT_START_DATE"),
 		ImportOwnerNotesFetchTimeoutSeconds:  getEnvInt("IMPORT_OWNER_NOTES_FETCH_TIMEOUT_SECONDS", 60),

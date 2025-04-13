@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"text/template"
@@ -87,12 +88,24 @@ func initRelays() {
 	initRelayLimits()
 
 	privateRelay.Info.Name = config.PrivateRelayName
-	privateRelay.Info.PubKey = nPubToPubkey(config.PrivateRelayNpub)
+	privateRelay.Info.PubKey = nPubToPubkey(config.OwnerNpub)
 	privateRelay.Info.Description = config.PrivateRelayDescription
-	privateRelay.Info.Icon = config.PrivateRelayIcon
+	privateRelay.Info.Icon = config.RelayIcon
 	privateRelay.Info.Version = config.RelayVersion
 	privateRelay.Info.Software = config.RelaySoftware
 	privateRelay.ServiceURL = "https://" + config.RelayURL + "/private"
+
+	// whitelist functions
+	writeWhitelist, err := loadWriteWhitelist()
+	if err != nil {
+		fmt.Println("Error loading write whitelist:", err)
+		return
+	}
+
+	fmt.Println("Write whitelisted pubkeys:")
+	for _, pubkey := range writeWhitelist.Pubkeys {
+		fmt.Println(pubkey)
+	}
 
 	if !privateRelayLimits.AllowEmptyFilters {
 		privateRelay.RejectFilter = append(privateRelay.RejectFilter, policies.NoEmptyFilters)
@@ -138,6 +151,7 @@ func initRelays() {
 		return true, "auth-required: this query requires you to be authenticated"
 	})
 
+	/* Replace 1 npub authentication by whitelist
 	privateRelay.RejectEvent = append(privateRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
 		authenticatedUser := khatru.GetAuthed(ctx)
 
@@ -147,6 +161,28 @@ func initRelays() {
 
 		return true, "auth-required: publishing this event requires authentication"
 	})
+	*/
+
+	// add whitelist to private relay
+	privateRelay.RejectEvent = append(privateRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+		if event.PubKey == "" {
+			return true, "no pubkey"
+		}
+
+		// Allow if writeWhitelist is empty
+		if len(writeWhitelist.Pubkeys) == 0 {
+			return false, ""
+		}
+
+		for _, pubkey := range writeWhitelist.Pubkeys {
+			if pubkey == event.PubKey {
+				return false, ""
+			}
+		}
+
+		return true, "pubkey not whitelisted"
+	})
+
 
 	mux := privateRelay.Router()
 
@@ -159,7 +195,7 @@ func initRelays() {
 			RelayURL         string
 		}{
 			RelayName:        config.PrivateRelayName,
-			RelayPubkey:      nPubToPubkey(config.PrivateRelayNpub),
+			RelayPubkey:      nPubToPubkey(config.OwnerNpub),
 			RelayDescription: config.PrivateRelayDescription,
 			RelayURL:         "wss://" + config.RelayURL + "/private",
 		}
@@ -169,10 +205,11 @@ func initRelays() {
 		}
 	})
 
+	// START OF CHAT RELAY
 	chatRelay.Info.Name = config.ChatRelayName
-	chatRelay.Info.PubKey = nPubToPubkey(config.ChatRelayNpub)
+	chatRelay.Info.PubKey = nPubToPubkey(config.OwnerNpub)
 	chatRelay.Info.Description = config.ChatRelayDescription
-	chatRelay.Info.Icon = config.ChatRelayIcon
+	chatRelay.Info.Icon = config.RelayIcon
 	chatRelay.Info.Version = config.RelayVersion
 	chatRelay.Info.Software = config.RelaySoftware
 	chatRelay.ServiceURL = "https://" + config.RelayURL + "/chat"
@@ -212,6 +249,7 @@ func initRelays() {
 	chatRelay.CountEvents = append(chatRelay.CountEvents, chatDB.CountEvents)
 	chatRelay.ReplaceEvent = append(chatRelay.ReplaceEvent, chatDB.ReplaceEvent)
 
+	// as all the npubs are in the web of trust, no changes needed
 	chatRelay.RejectFilter = append(chatRelay.RejectFilter, func(ctx context.Context, filter nostr.Filter) (bool, string) {
 		authenticatedUser := khatru.GetAuthed(ctx)
 
@@ -271,7 +309,7 @@ func initRelays() {
 			RelayURL         string
 		}{
 			RelayName:        config.ChatRelayName,
-			RelayPubkey:      nPubToPubkey(config.ChatRelayNpub),
+			RelayPubkey:      nPubToPubkey(config.OwnerNpub),
 			RelayDescription: config.ChatRelayDescription,
 			RelayURL:         "wss://" + config.RelayURL + "/chat",
 		}
@@ -282,9 +320,9 @@ func initRelays() {
 	})
 
 	outboxRelay.Info.Name = config.OutboxRelayName
-	outboxRelay.Info.PubKey = nPubToPubkey(config.OutboxRelayNpub)
+	outboxRelay.Info.PubKey = nPubToPubkey(config.OwnerNpub)
 	outboxRelay.Info.Description = config.OutboxRelayDescription
-	outboxRelay.Info.Icon = config.OutboxRelayIcon
+	outboxRelay.Info.Icon = config.RelayIcon
 	outboxRelay.Info.Version = config.RelayVersion
 	outboxRelay.Info.Software = config.RelaySoftware
 	outboxRelay.ServiceURL = "https://" + config.RelayURL
@@ -323,11 +361,32 @@ func initRelays() {
 	outboxRelay.CountEvents = append(outboxRelay.CountEvents, outboxDB.CountEvents)
 	outboxRelay.ReplaceEvent = append(outboxRelay.ReplaceEvent, outboxDB.ReplaceEvent)
 
+	/* Replace owner npub by whitelist feature
 	outboxRelay.RejectEvent = append(outboxRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
 		if event.PubKey == nPubToPubkey(config.OwnerNpub) {
 			return false, ""
 		}
 		return true, "only notes signed by the owner of this relay are allowed"
+	})
+	*/
+
+	outboxRelay.RejectEvent = append(outboxRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+		if event.PubKey == "" {
+			return true, "no pubkey"
+		}
+
+		// Allow if writeWhitelist is empty
+		if len(writeWhitelist.Pubkeys) == 0 {
+			return false, ""
+		}
+
+		for _, pubkey := range writeWhitelist.Pubkeys {
+			if pubkey == event.PubKey {
+				return false, ""
+			}
+		}
+
+		return true, "pubkey not whitelisted"
 	})
 
 	mux = outboxRelay.Router()
@@ -342,7 +401,7 @@ func initRelays() {
 			RelayURL         string
 		}{
 			RelayName:        config.OutboxRelayName,
-			RelayPubkey:      nPubToPubkey(config.OutboxRelayNpub),
+			RelayPubkey:      nPubToPubkey(config.OwnerNpub),
 			RelayDescription: config.OutboxRelayDescription,
 			RelayURL:         "wss://" + config.RelayURL + "/outbox",
 		}
@@ -371,18 +430,44 @@ func initRelays() {
 	bl.DeleteBlob = append(bl.DeleteBlob, func(ctx context.Context, sha256 string) error {
 		return fs.Remove(config.BlossomPath + sha256)
 	})
+	/* Replace 1 npub by whitelisted npubs	
 	bl.RejectUpload = append(bl.RejectUpload, func(ctx context.Context, event *nostr.Event, size int, ext string) (bool, string, int) {
 		if event.PubKey == nPubToPubkey(config.OwnerNpub) {
 			return false, ext, size
+			}
+			
+			return true, "only notes signed by the owner of this relay are allowed", 403
+			})
+			*/
+			
+			
+			
+	bl.RejectUpload = append(bl.RejectUpload, func(ctx context.Context, event *nostr.Event, size int, ext string) (bool, string, int) {
+		if event.PubKey == "" {
+			return true, "no pubkey", 403
 		}
 
-		return true, "only notes signed by the owner of this relay are allowed", 403
+		// Allow if writeWhitelist is empty
+		if len(writeWhitelist.Pubkeys) == 0 {
+			// return false, ""
+			return false, ext, size
+		}
+		
+		for _, pubkey := range writeWhitelist.Pubkeys {
+			if pubkey == event.PubKey {
+				// return false, ""
+				return false, ext, size
+			}
+		}
+
+		return true, "only notes signed by the certain npubs are allowed", 403
 	})
 
+
 	inboxRelay.Info.Name = config.InboxRelayName
-	inboxRelay.Info.PubKey = nPubToPubkey(config.InboxRelayNpub)
+	inboxRelay.Info.PubKey = nPubToPubkey(config.OwnerNpub)
 	inboxRelay.Info.Description = config.InboxRelayDescription
-	inboxRelay.Info.Icon = config.InboxRelayIcon
+	inboxRelay.Info.Icon = config.RelayIcon
 	inboxRelay.Info.Version = config.RelayVersion
 	inboxRelay.Info.Software = config.RelaySoftware
 	inboxRelay.ServiceURL = "https://" + config.RelayURL + "/inbox"
@@ -418,6 +503,7 @@ func initRelays() {
 	inboxRelay.CountEvents = append(inboxRelay.CountEvents, inboxDB.CountEvents)
 	inboxRelay.ReplaceEvent = append(inboxRelay.ReplaceEvent, inboxDB.ReplaceEvent)
 
+	// TODO check this policy
 	inboxRelay.RejectEvent = append(inboxRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
 		if !wotMap[event.PubKey] {
 			return true, "you must be in the web of trust to post to this relay"
@@ -445,7 +531,7 @@ func initRelays() {
 			RelayURL         string
 		}{
 			RelayName:        config.InboxRelayName,
-			RelayPubkey:      nPubToPubkey(config.InboxRelayNpub),
+			RelayPubkey:      nPubToPubkey(config.OwnerNpub),
 			RelayDescription: config.InboxRelayDescription,
 			RelayURL:         "wss://" + config.RelayURL + "/inbox",
 		}
