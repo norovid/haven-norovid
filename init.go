@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"text/template"
 	"time"
-
+	
 	"github.com/fiatjaf/eventstore/badger"
 	"github.com/fiatjaf/eventstore/lmdb"
 	"github.com/fiatjaf/khatru"
@@ -69,6 +69,7 @@ func newLMDBBackend(path string) *lmdb.LMDBBackend {
 }
 
 func initRelays() {
+
 	if err := privateDB.Init(); err != nil {
 		panic(err)
 	}
@@ -85,6 +86,19 @@ func initRelays() {
 		panic(err)
 	}
 
+	// whitelist functions
+	writeWhitelist, err := loadWriteWhitelist()
+	if err != nil {
+		fmt.Println("Error loading write whitelist:", err)
+		return
+	}
+	
+	fmt.Println("Write whitelisted pubkeys:")
+	for _, pubkey := range writeWhitelist.Pubkeys {
+		fmt.Println(pubkey)
+	}
+	
+
 	initRelayLimits()
 
 	privateRelay.Info.Name = config.PrivateRelayName
@@ -94,18 +108,6 @@ func initRelays() {
 	privateRelay.Info.Version = config.RelayVersion
 	privateRelay.Info.Software = config.RelaySoftware
 	privateRelay.ServiceURL = "https://" + config.RelayURL + "/private"
-
-	// whitelist functions
-	writeWhitelist, err := loadWriteWhitelist()
-	if err != nil {
-		fmt.Println("Error loading write whitelist:", err)
-		return
-	}
-
-	fmt.Println("Write whitelisted pubkeys:")
-	for _, pubkey := range writeWhitelist.Pubkeys {
-		fmt.Println(pubkey)
-	}
 
 	if !privateRelayLimits.AllowEmptyFilters {
 		privateRelay.RejectFilter = append(privateRelay.RejectFilter, policies.NoEmptyFilters)
@@ -143,12 +145,18 @@ func initRelays() {
 	privateRelay.ReplaceEvent = append(privateRelay.ReplaceEvent, privateDB.ReplaceEvent)
 
 	privateRelay.RejectFilter = append(privateRelay.RejectFilter, func(ctx context.Context, filter nostr.Filter) (bool, string) {
+		// check if user is allowed
 		authenticatedUser := khatru.GetAuthed(ctx)
-		if authenticatedUser == nPubToPubkey(config.OwnerNpub) {
-			return false, ""
+		if authenticatedUser == "" {
+			return true, "auth-required: this query requires you to be authenticated"
 		}
 
-		return true, "auth-required: this query requires you to be authenticated"
+		for _, pubkey := range writeWhitelist.Pubkeys {
+			if pubkey == authenticatedUser {
+				return false, ""
+			}
+		}
+		return true, "restricted: you're not authorized to read"
 	})
 
 	/* Replace 1 npub authentication by whitelist
@@ -167,11 +175,6 @@ func initRelays() {
 	privateRelay.RejectEvent = append(privateRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 		if event.PubKey == "" {
 			return true, "no pubkey"
-		}
-
-		// Allow if writeWhitelist is empty
-		if len(writeWhitelist.Pubkeys) == 0 {
-			return false, ""
 		}
 
 		for _, pubkey := range writeWhitelist.Pubkeys {
@@ -361,32 +364,14 @@ func initRelays() {
 	outboxRelay.CountEvents = append(outboxRelay.CountEvents, outboxDB.CountEvents)
 	outboxRelay.ReplaceEvent = append(outboxRelay.ReplaceEvent, outboxDB.ReplaceEvent)
 
-	/* Replace owner npub by whitelist feature
-	outboxRelay.RejectEvent = append(outboxRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
-		if event.PubKey == nPubToPubkey(config.OwnerNpub) {
-			return false, ""
-		}
-		return true, "only notes signed by the owner of this relay are allowed"
-	})
-	*/
-
 	outboxRelay.RejectEvent = append(outboxRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
-		if event.PubKey == "" {
-			return true, "no pubkey"
-		}
-
-		// Allow if writeWhitelist is empty
-		if len(writeWhitelist.Pubkeys) == 0 {
-			return false, ""
-		}
-
 		for _, pubkey := range writeWhitelist.Pubkeys {
 			if pubkey == event.PubKey {
 				return false, ""
 			}
 		}
 
-		return true, "pubkey not whitelisted"
+		return true, "🖕 only notes signed by certain users are are allowed"
 	})
 
 	mux = outboxRelay.Router()
@@ -430,6 +415,7 @@ func initRelays() {
 	bl.DeleteBlob = append(bl.DeleteBlob, func(ctx context.Context, sha256 string) error {
 		return fs.Remove(config.BlossomPath + sha256)
 	})
+
 	/* Replace 1 npub by whitelisted npubs	
 	bl.RejectUpload = append(bl.RejectUpload, func(ctx context.Context, event *nostr.Event, size int, ext string) (bool, string, int) {
 		if event.PubKey == nPubToPubkey(config.OwnerNpub) {
@@ -440,29 +426,17 @@ func initRelays() {
 			})
 			*/
 			
-			
-			
-	bl.RejectUpload = append(bl.RejectUpload, func(ctx context.Context, event *nostr.Event, size int, ext string) (bool, string, int) {
-		if event.PubKey == "" {
-			return true, "no pubkey", 403
-		}
 
-		// Allow if writeWhitelist is empty
-		if len(writeWhitelist.Pubkeys) == 0 {
-			// return false, ""
-			return false, ext, size
-		}
-		
+	
+	bl.RejectUpload = append(bl.RejectUpload, func(ctx context.Context, auth *nostr.Event, size int, ext string) (bool, string, int) {
 		for _, pubkey := range writeWhitelist.Pubkeys {
-			if pubkey == event.PubKey {
-				// return false, ""
+			if pubkey == auth.PubKey {
 				return false, ext, size
 			}
 		}
 
-		return true, "only notes signed by the certain npubs are allowed", 403
+		return true, "pubkey not authorized to upload to this relay", 403
 	})
-
 
 	inboxRelay.Info.Name = config.InboxRelayName
 	inboxRelay.Info.PubKey = nPubToPubkey(config.OwnerNpub)

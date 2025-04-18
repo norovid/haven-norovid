@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -29,6 +31,16 @@ type S3Config struct {
 	Region      string `json:"region"`
 }
 
+// Add Write Whitelist 
+type WriteWhitelist struct {
+	Pubkeys []string `json:"pubkeys"`
+}
+
+// Add Read Whitelist 
+type ReadWhitelist struct {
+	Pubkeys []string `json:"pubkeys"`
+}
+
 type Config struct {
 	OwnerNpub                            string     `json:"owner_npub"`
 	DBEngine                             string     `json:"db_engine"`
@@ -50,7 +62,7 @@ type Config struct {
 	OutboxRelayDescription               string     `json:"outbox_relay_description"`
 	InboxRelayName                       string     `json:"inbox_relay_name"`
 	InboxRelayDescription                string     `json:"inbox_relay_description"`
-	RelayIcon                       string     `json:"relay_icon"`
+	RelayIcon                       	 string     `json:"relay_icon"`
 	InboxPullIntervalSeconds             int        `json:"inbox_pull_interval_seconds"`
 	ImportStartDate                      string     `json:"import_start_date"`
 	ImportOwnerNotesFetchTimeoutSeconds  int        `json:"import_owned_notes_fetch_timeout_seconds"`
@@ -107,6 +119,56 @@ func loadConfig() Config {
 		S3Config:                             getS3Config(),
 		GcpConfig:                            getGcpConfig(),
 	}
+}
+
+func loadWriteWhitelist() (*WriteWhitelist, error) {
+	// Try opening "whitelist.json" first
+	file, err := os.Open("whitelist.json")
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Fallback to "write_whitelist.json" if "whitelist.json" does not exist
+			file, err = os.Open("write_whitelist.json")
+			if err != nil {
+				return nil, fmt.Errorf("could not open file: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("could not open file: %w", err)
+		}
+	}
+	defer file.Close()
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("could not read file: %w", err)
+	}
+
+	var writeWhitelist WriteWhitelist
+	if err := json.Unmarshal(bytes, &writeWhitelist); err != nil {
+		return nil, fmt.Errorf("could not parse JSON: %w", err)
+	}
+
+	return &writeWhitelist, nil
+}
+
+
+func loadReadWhitelist(filename string) (*ReadWhitelist, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("could not open file: %w", err)
+	}
+	defer file.Close()
+
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("could not read file: %w", err)
+	}
+
+	var readWhitelist ReadWhitelist
+	if err := json.Unmarshal(bytes, &readWhitelist); err != nil {
+		return nil, fmt.Errorf("could not parse JSON: %w", err)
+	}
+
+	return &readWhitelist, nil
 }
 
 func getAwsConfig() *AwsConfig {
