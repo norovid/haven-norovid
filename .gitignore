@@ -1,6 +1,7 @@
 .env
 relays_import.json
 relays_blastr.json
+write_whitelist.json
 haven
 .DS_Store
 .idea/

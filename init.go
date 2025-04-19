@@ -159,18 +159,6 @@ func initRelays() {
 		return true, "restricted: you're not authorized to read"
 	})
 
-	/* Replace 1 npub authentication by whitelist
-	privateRelay.RejectEvent = append(privateRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (bool, string) {
-		authenticatedUser := khatru.GetAuthed(ctx)
-
-		if authenticatedUser == nPubToPubkey(config.OwnerNpub) {
-			return false, ""
-		}
-
-		return true, "auth-required: publishing this event requires authentication"
-	})
-	*/
-
 	// add whitelist to private relay
 	privateRelay.RejectEvent = append(privateRelay.RejectEvent, func(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 		if event.PubKey == "" {
@@ -416,18 +404,6 @@ func initRelays() {
 		return fs.Remove(config.BlossomPath + sha256)
 	})
 
-	/* Replace 1 npub by whitelisted npubs	
-	bl.RejectUpload = append(bl.RejectUpload, func(ctx context.Context, event *nostr.Event, size int, ext string) (bool, string, int) {
-		if event.PubKey == nPubToPubkey(config.OwnerNpub) {
-			return false, ext, size
-			}
-			
-			return true, "only notes signed by the owner of this relay are allowed", 403
-			})
-			*/
-			
-
-	
 	bl.RejectUpload = append(bl.RejectUpload, func(ctx context.Context, auth *nostr.Event, size int, ext string) (bool, string, int) {
 		for _, pubkey := range writeWhitelist.Pubkeys {
 			if pubkey == auth.PubKey {

@@ -1,18 +1,28 @@
-# HAVEN
+# HHAVEN (Modified with SW2 Whitelist Subkeys)
 
-HAVEN (High Availability Vault for Events on Nostr) is the most sovereign personal relay for the Nostr protocol, for storing and backing up sensitive notes like eCash, private chats and drafts. It is a relay that is not so dumb, with features like web of trust, inbox relay, cloud backups, blastr and the ability to import old notes. It even includes it's own blossom media server!
+HAVEN (High Availability Vault for Events on Nostr) is a sovereign personal relay for the Nostr protocol, designed for storing and backing up sensitive notes like eCash, private chats, and drafts. This version is a modified implementation of the original [HAVEN](https://github.com/bitvora/haven) with enhancements from [SW2](https://github.com/bitvora/haven), introducing whitelist subkeys to allow specific users access to the Four Relays in One + Blossom Media Server features.
 
 ## Four Relays in One + Blossom Media Server
 
-**Private Relay**: This relay is only accessible by the owner of the relay. It is used for drafts, ecash and other private notes that nobody can read or write to. It is protected by Auth.
+- **Private Relay**: This relay is only accessible by the owner of the relay. It is used for drafts, ecash and other private notes that nobody can read or write to. It is protected by Auth.
 
-**Chat Relay**: This relay is used to contact the owner by DM. Only people in the web of trust can interact with this relay, protected by Auth. It only accepts encrypted DMs and group chat kinds.
+- **Chat Relay**: This relay is used to contact the owner by DM. Only people in the web of trust can interact with this relay, protected by Auth. It only accepts encrypted DMs and group chat kinds.
 
-**Inbox Relay**: This relay is where the owner of the relay reads from. Send your zaps, reactions and replies to this relay when you're tagging the owner. You can also pull notes from this relay if you want notes where the owner is tagged. This relay automatically pulls notes from other relays. Only notes where the owner is tagged will be accepted to this relay.
+- **Inbox Relay**: This relay is where the owner of the relay reads from. Send your zaps, reactions and replies to this relay when you're tagging the owner. You can also pull notes from this relay if you want notes where the owner is tagged. This relay automatically pulls notes from other relays. Only notes where the owner is tagged will be accepted to this relay.
 
-**Outbox Relay**: This relay is where the owner's notes all live and are publicly accessible. You can import all your old notes to this relay. All notes sent to this relay are blasted to other relays. Only the owner can send to this relay, but anyone can read.
+- **Outbox Relay**: This relay is where the owner's notes all live and are publicly accessible. You can import all your old notes to this relay. All notes sent to this relay are blasted to other relays. Only the owner can send to this relay, but anyone can read.
 
-**Blossom Media Server**: This relay also includes a media server for hosting images and videos. You can upload images and videos to this relay and get a link to share them. Only the relay owner can upload to this relay, but anyone can view the images and videos.
+- **Blossom Media Server**: This relay also includes a media server for hosting images and videos. You can upload images and videos to this relay and get a link to share them. Only the relay owner can upload to this relay, but anyone can view the images and videos.
+
+## Whitelist Subkeys (SW2 Modification)
+
+This modified version introduces whitelist subkeys, allowing the relay owner to grant specific Nostr subkeys access to the Private, Chat, Inbox, and Outbox relays, as well as the Blossom Media Server. Whitelisted users can perform actions like writing to the relays or uploading media, subject to the same authentication and web of trust protections as the owner.
+
+To configure whitelisted subkeys, copy write_whitelist.json.example and paste you subkeys in hexadecimal format
+
+```bash
+cp write_whitelist.json.example write_whitelist.json.example
+```
 
 ## Not So Dumb Relay Features
 
@@ -450,3 +460,4 @@ release.
 
 This project is licensed under the [MIT](./LICENSE) License.
 # haven-norovid
+
